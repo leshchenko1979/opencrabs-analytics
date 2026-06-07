@@ -20,9 +20,21 @@ python3 ~/.opencrabs/analytics/gen_dashboard.py
 # Output: ~/.opencrabs/analytics/index.html
 ```
 
-## Cron
+## Cron (manual setup)
 
-Runs every 6 hours via OpenCrabs cron. Uploads to litterbox.catbox.moe (72h expiry) and delivers the link to Telegram.
+The cron job is **not** created automatically. You need to set it up yourself using OpenCrabs cron. The recommended setup:
+
+1. Generate the dashboard: `python3 gen_dashboard.py`
+2. Upload `index.html` to a paste service (e.g. `litterbox.catbox.moe`)
+3. Send the link to your Telegram/chat
+
+Example cron prompt:
+```
+Run python3 ~/.opencrabs/analytics/gen_dashboard.py to generate the dashboard,
+then upload ~/.opencrabs/analytics/index.html to litterbox.catbox.moe via:
+curl -F 'reqtype=fileupload' -F 'time=72h' -F 'fileToUpload=@/root/.opencrabs/analytics/index.html' https://litterbox.catbox.moe/resources/internals/api.php
+Then reply with ONLY the URL.
+```
 
 ## Data Sources
 
