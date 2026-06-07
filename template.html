@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RSI/Brain Analytics</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root { --bg: #1a1a2e; --card: #16213e; --text: #e0e0e0; --accent: #0f3460; --hi: #e94560; --green: #2ecc71; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px; }
+  h1 { text-align: center; margin-bottom: 10px; color: var(--hi); }
+  .meta { text-align: center; opacity: 0.7; margin-bottom: 20px; font-size: 0.9em; }
+  .switcher { display: flex; justify-content: center; gap: 10px; margin-bottom: 25px; }
+  .switcher button { background: var(--card); color: var(--text); border: 1px solid var(--accent); padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size: 0.95em; transition: all 0.2s; }
+  .switcher button.active { background: var(--hi); border-color: var(--hi); color: #fff; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 30px; }
+  .card { background: var(--card); padding: 20px; border-radius: 8px; text-align: center; }
+  .card .value { font-size: 1.8em; font-weight: bold; color: var(--hi); }
+  .card .label { opacity: 0.8; margin-top: 5px; font-size: 0.85em; }
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+  .chart-container { background: var(--card); padding: 20px; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+  .chart-container.expanded { grid-column: 1 / -1; max-height: none; }
+  .chart-container.expanded canvas { max-height: 600px; }
+  .chart-container h3 { margin-bottom: 15px; color: var(--hi); font-size: 1em; user-select: none; display: flex; justify-content: space-between; align-items: center; }
+  .chart-container h3 { position: relative; padding-right: 30px; }
+  .chart-container h3::after { content: '⛶'; font-size: 0.9em; opacity: 0.6; position: absolute; right: 0; top: 0; }
+  .chart-container.expanded h3::after { content: '✕'; }
+  .list-panel { background: var(--card); padding: 20px; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+  .list-panel.expanded { grid-column: 1 / -1; max-height: none; overflow-y: visible; }
+  .list-panel h3 { margin-bottom: 15px; color: var(--hi); font-size: 1em; user-select: none; display: flex; justify-content: space-between; align-items: center; position: relative; padding-right: 30px; }
+  .list-panel h3::after { content: '⛶'; font-size: 0.9em; opacity: 0.6; position: absolute; right: 0; top: 0; }
+  .list-panel.expanded h3::after { content: '✕'; }
+  .list-panel table { width: 100%; border-collapse: collapse; }
+  .list-panel th, .list-panel td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--accent); }
+  .list-panel th { color: var(--hi); font-size: 0.85em; text-transform: uppercase; }
+  .list-panel td { font-size: 0.9em; }
+  .section-title { font-size: 1.3em; color: var(--hi); margin: 30px 0 15px; padding-bottom: 8px; border-bottom: 1px solid var(--accent); }
+  canvas { max-height: 300px; }
+  @media (max-width: 600px) { .charts { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>🧠 RSI / Brain Analytics</h1>
+<div class="meta">Generated: __GENERATED_AT__ | Data Period: __DATA_PERIOD__</div>
+
+<div class="section-title">🧠 Profile Analytics</div>
+<div class="switcher" id="profileSwitcher"></div>
+
+<div class="cards">
+  <div class="card"><div class="value" id="cardKB">__TOTAL_KB__ KB</div><div class="label">Brain Size (<span id="cardFiles">__FILE_COUNT__</span> files)</div></div>
+</div>
+
+<div class="charts">
+  <div class="chart-container" onclick="toggleExpand(this)">
+    <h3>Brain File Sizes (KB) — Top 10 + Others</h3>
+    <canvas id="brainChart"></canvas>
+  </div>
+  <div class="chart-container" onclick="toggleExpand(this)">
+    <h3>Brain File Size History (KB)</h3>
+    <canvas id="brainHistoryChart"></canvas>
+  </div>
+</div>
+
+<div class="section-title">🛠️ Global Tool & RSI Analytics</div>
+
+<div class="charts">
+  <div class="chart-container" onclick="toggleExpand(this)">
+    <h3>Tool Usage vs Failure Rate (bubble size & color = RSI applied)</h3>
+    <div id="scatterLegend" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:0.8em;opacity:0.8;">
+      <span>Applied:</span>
+      <span>0</span>
+      <div style="width:150px;height:12px;border-radius:3px;background:linear-gradient(to right,#2ecc71,#f1c40f,#e74c3c);"></div>
+      <span>20+</span>
+    </div>
+    <canvas id="scatterChart"></canvas>
+  </div>
+  <div class="chart-container" onclick="toggleExpand(this)">
+    <h3>Most Used Tools (stacked: success/failure + fail rate %)</h3>
+    <canvas id="topToolsChart"></canvas>
+  </div>
+  <div class="list-panel" onclick="toggleExpand(this)">
+    <h3>RSI Applied / Mention Rate (Top 10)</h3>
+    <table id="appliedTable"><thead><tr><th>Tool</th><th>Applied</th><th>Mentions</th><th>Rate</th></tr></thead><tbody></tbody></table>
+  </div>
+  <div class="chart-container" onclick="toggleExpand(this)">
+    <h3>RSI Improvements Timeline</h3>
+    <canvas id="rsiChart"></canvas>
+  </div>
+  <div class="list-panel" onclick="toggleExpand(this)">
+    <h3>Least Used Tools</h3>
+    <table id="leastTable"><thead><tr><th>Tool</th><th>Calls</th></tr></thead><tbody></tbody></table>
+  </div>
+  <div class="list-panel" onclick="toggleExpand(this)">
+    <h3>Lowest Failure Rates (min 5 calls)</h3>
+    <table id="bestTable"><thead><tr><th>Tool</th><th>Fail Rate</th><th>Calls</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+
+<script>
+window.toggleExpand = function(el) {
+  el.classList.toggle('expanded');
+  window.dispatchEvent(new Event('resize'));
+};
+
+var PROFILES = __PROFILES_JSON__;
+var TOOLS = __TOOL_JSON__;
+var currentProfile = 0;
+var charts = {};
+
+var commonOpts = {
+  responsive: true,
+  plugins: { legend: { labels: { color: '#e0e0e0' } } },
+  scales: { x: { ticks: { color: '#aaa' } }, y: { ticks: { color: '#aaa' } } }
+};
+
+function initCharts() {
+  // Brain sizes bar
+  charts.brain = new Chart(document.getElementById('brainChart'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Size (KB)', data: [], backgroundColor: '#e94560' }] },
+    options: Object.assign({}, commonOpts, { indexAxis: 'y', plugins: { legend: { display: false } } })
+  });
+
+  // Bubble scatter: x=usage, y=fail rate, r+color=RSI
+  charts.scatter = new Chart(document.getElementById('scatterChart'), {
+    type: 'bubble',
+    data: { datasets: [{ label: 'Tools', data: [], backgroundColor: [] }] },
+    options: Object.assign({}, commonOpts, {
+      scales: {
+        x: { title: { display: true, text: 'Total Executions', color: '#aaa' }, ticks: { color: '#aaa' } },
+        y: { title: { display: true, text: 'Failure Rate (%)', color: '#aaa' }, ticks: { color: '#aaa' } }
+      },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) {
+        return ctx.raw.label + ': ' + ctx.raw.x + ' uses, ' + ctx.raw.y + '% fail, ' + ctx.raw.rsi + ' RSI';
+      }}}}
+    })
+  });
+
+  // Brain history line (time scale)
+  charts.history = new Chart(document.getElementById('brainHistoryChart'), {
+    type: 'line',
+    data: { datasets: [] },
+    options: Object.assign({}, commonOpts, {
+      scales: {
+        x: { type: 'time', time: { unit: 'hour', displayFormats: { hour: 'MM-dd HH:00' } }, ticks: { color: '#aaa', maxRotation: 45 } },
+        y: { title: { display: true, text: 'KB', color: '#aaa' }, ticks: { color: '#aaa' } }
+      }
+    })
+  });
+
+  // Top tools stacked
+  charts.top = new Chart(document.getElementById('topToolsChart'), {
+    type: 'bar',
+    data: { labels: [], datasets: [
+      { label: 'Success', data: [], backgroundColor: '#2ecc71' },
+      { label: 'Failure', data: [], backgroundColor: '#e94560' }
+    ]},
+    options: Object.assign({}, commonOpts, {
+      scales: { x: { stacked: true, ticks: { color: '#aaa' } }, y: { stacked: true, ticks: { color: '#aaa' } } },
+      plugins: { legend: { display: true, labels: { color: '#e0e0e0' } },
+        tooltip: { callbacks: { afterBody: function(items) {
+          var idx = items[0].dataIndex;
+          return 'Fail rate: ' + TOOLS.top_fail_rates[idx] + '%';
+        }}}
+      }
+    })
+  });
+
+  // RSI timeline
+  charts.rsi = new Chart(document.getElementById('rsiChart'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'Cumulative Improvements', data: [], borderColor: '#e94560', fill: false, tension: 0.3 }] },
+    options: Object.assign({}, commonOpts, { plugins: { legend: { display: false } } })
+  });
+}
+
+function updateProfile(idx) {
+  currentProfile = idx;
+  var p = PROFILES[idx];
+
+  // Update cards
+  document.getElementById('cardKB').textContent = p.total_kb + ' KB';
+  document.getElementById('cardFiles').textContent = p.file_count;
+
+  // Update switcher buttons
+  var btns = document.querySelectorAll('.switcher button');
+  btns.forEach(function(b, i) { b.classList.toggle('active', i === idx); });
+
+  // Brain sizes
+  charts.brain.data.labels = p.brain_labels;
+  charts.brain.data.datasets[0].data = p.brain_kb;
+  charts.brain.update();
+
+  // Brain history
+  var colors = ['#e94560','#0f3460','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#3498db','#e74c3c','#2c3e50'];
+  var datasets = [];
+  p.brain_history.forEach(function(fh, i) {
+    datasets.push({
+      label: fh.file,
+      data: fh.points.map(function(pt) {
+        return { x: pt.iso, y: pt.kb };
+      }),
+      borderColor: colors[i % colors.length],
+      fill: false,
+      tension: 0.3
+    });
+  });
+  charts.history.data.datasets = datasets;
+  charts.history.update();
+}
+
+function rsiColor(rsi) {
+  if (rsi === 0) return 'rgba(46,204,113,0.7)';
+  var t = Math.min(rsi / 20, 1);
+  var r = Math.round(46 + t * (233 - 46));
+  var g = Math.round(204 - t * 204);
+  var b = Math.round(113 - t * 113);
+  return 'rgba(' + r + ',' + g + ',' + b + ',0.8)';
+}
+
+function initToolCharts() {
+  var bgColors = TOOLS.scatter.map(function(d) { return rsiColor(d.rsi); });
+  charts.scatter.data.datasets[0].data = TOOLS.scatter;
+  charts.scatter.data.datasets[0].backgroundColor = bgColors;
+  charts.scatter.update();
+
+  charts.top.data.labels = TOOLS.top_labels;
+  charts.top.data.datasets[0].data = TOOLS.top_success;
+  charts.top.data.datasets[1].data = TOOLS.top_fails;
+  charts.top.update();
+
+  var leastTbody = document.querySelector('#leastTable tbody');
+  leastTbody.innerHTML = '';
+  TOOLS.least_list.forEach(function(item) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + item.name + '</td><td>' + item.count + '</td>';
+    leastTbody.appendChild(tr);
+  });
+
+  var bestTbody = document.querySelector('#bestTable tbody');
+  bestTbody.innerHTML = '';
+  TOOLS.best_list.forEach(function(item) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + item.name + '</td><td>' + item.rate + '%</td><td>' + item.count + '</td>';
+    bestTbody.appendChild(tr);
+  });
+
+  var appliedTbody = document.querySelector('#appliedTable tbody');
+  appliedTbody.innerHTML = '';
+  TOOLS.top_labels.forEach(function(name, i) {
+    var applied = TOOLS.top_applied[i];
+    var mentions = TOOLS.top_mentions[i];
+    var rate = mentions > 0 ? (applied / mentions * 100).toFixed(0) + '%' : '—';
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + name + '</td><td>' + applied + '</td><td>' + mentions + '</td><td>' + rate + '</td>';
+    appliedTbody.appendChild(tr);
+  });
+
+  charts.rsi.data.labels = TOOLS.rsi_dates;
+  charts.rsi.data.datasets[0].data = TOOLS.rsi_cum;
+  charts.rsi.update();
+}
+
+function buildSwitcher() {
+  var container = document.getElementById('profileSwitcher');
+  PROFILES.forEach(function(p, i) {
+    var btn = document.createElement('button');
+    btn.textContent = p.name;
+    btn.onclick = function() { updateProfile(i); };
+    if (i === 0) btn.classList.add('active');
+    container.appendChild(btn);
+  });
+}
+
+initCharts();
+buildSwitcher();
+updateProfile(0);
+initToolCharts();
+</script>
+</body>
+</html>
