@@ -13,10 +13,22 @@ from pathlib import Path
 from collections import defaultdict
 
 HOME = Path.home()
-PROFILES = {
-    'ops': HOME / '.opencrabs' / 'profiles' / 'ops',
-    'redevest': HOME / '.opencrabs',
-}
+OPENCRABS_ROOT = HOME / '.opencrabs'
+PROFILES_DIR = OPENCRABS_ROOT / 'profiles'
+
+
+def discover_profiles():
+    """Dynamically discover profiles from the filesystem."""
+    profiles = {}
+    # Root-level profile (redevest/default) — always included
+    if OPENCRABS_ROOT.exists():
+        profiles['default'] = OPENCRABS_ROOT
+    # Scan profiles/ subdirectories (skip .bak dirs)
+    if PROFILES_DIR.exists():
+        for d in sorted(PROFILES_DIR.iterdir()):
+            if d.is_dir() and '.bak' not in d.name and not d.name.startswith('.'):
+                profiles[d.name] = d
+    return profiles
 RSI_DIR = HOME / '.opencrabs' / 'rsi'
 DB_PATH = HOME / '.opencrabs' / 'opencrabs.db'
 OUTPUT_DEFAULT = HOME / '.opencrabs' / 'analytics' / 'index.html'
@@ -615,7 +627,7 @@ def main():
 
     print('Collecting data...')
     profiles_data = []
-    for name, path in PROFILES.items():
+    for name, path in discover_profiles().items():
         pd = build_profile_data(name, path)
         profiles_data.append(pd)
         print(f'  Profile {name}: {pd["file_count"]} files, {pd["total_kb"]} KB')
