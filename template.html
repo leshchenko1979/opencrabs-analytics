@@ -63,6 +63,14 @@
   </div>
 </div>
 
+<div class="charts" style="grid-template-columns: 1fr;">
+  <div class="chart-container" onclick="toggleExpand(this)" style="grid-column: 1 / -1;">
+    <h3>Section Breakdown — Top 10 Sections (sorted by size)</h3>
+    <div class="switcher" id="fileSwitcher" style="margin-bottom:15px;flex-wrap:wrap;"></div>
+    <canvas id="sectionChart"></canvas>
+  </div>
+</div>
+
 <div class="section-title">🛠️ Global Tool & RSI Analytics</div>
 
 <div class="charts">
@@ -107,6 +115,7 @@ window.toggleExpand = function(el) {
 var PROFILES = __PROFILES_JSON__;
 var TOOLS = __TOOL_JSON__;
 var currentProfile = 0;
+var currentSectionFile = null;
 var charts = {};
 
 var commonOpts = {
@@ -174,6 +183,42 @@ function initCharts() {
     data: { labels: [], datasets: [{ label: 'Cumulative Improvements', data: [], borderColor: '#e94560', fill: false, tension: 0.3 }] },
     options: Object.assign({}, commonOpts, { plugins: { legend: { display: false } } })
   });
+
+  // Section breakdown bar chart
+  charts.section = new Chart(document.getElementById('sectionChart'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Size (KB)', data: [], backgroundColor: '#0f3460' }] },
+    options: Object.assign({}, commonOpts, { indexAxis: 'y', plugins: { legend: { display: false } } })
+  });
+}
+
+function updateSectionChart(fname) {
+  currentSectionFile = fname;
+  var p = PROFILES[currentProfile];
+  var sections = (p.brain_sections && p.brain_sections[fname]) || [];
+  // Limit to top 10 sections by size
+  var top10 = sections.slice(0, 10);
+  charts.section.data.labels = top10.map(function(s) { return s.heading; });
+  charts.section.data.datasets[0].data = top10.map(function(s) { return s.kb; });
+  charts.section.update();
+  // Update file switcher active state
+  var fbtns = document.querySelectorAll('#fileSwitcher button');
+  fbtns.forEach(function(b) { b.classList.toggle('active', b.textContent === fname); });
+}
+
+function buildFileSwitcher() {
+  var container = document.getElementById('fileSwitcher');
+  container.innerHTML = '';
+  var p = PROFILES[currentProfile];
+  var files = p.brain_labels.filter(function(f) { return f !== 'Other' && p.brain_sections && p.brain_sections[f]; });
+  files.forEach(function(fname, i) {
+    var btn = document.createElement('button');
+    btn.textContent = fname;
+    btn.onclick = function(e) { e.stopPropagation(); updateSectionChart(fname); };
+    if (i === 0) btn.classList.add('active');
+    container.appendChild(btn);
+  });
+  if (files.length > 0) updateSectionChart(files[0]);
 }
 
 function updateProfile(idx) {
@@ -185,7 +230,7 @@ function updateProfile(idx) {
   document.getElementById('cardFiles').textContent = p.file_count;
 
   // Update switcher buttons
-  var btns = document.querySelectorAll('.switcher button');
+  var btns = document.querySelectorAll('#profileSwitcher button');
   btns.forEach(function(b, i) { b.classList.toggle('active', i === idx); });
 
   // Brain sizes
@@ -209,6 +254,9 @@ function updateProfile(idx) {
   });
   charts.history.data.datasets = datasets;
   charts.history.update();
+
+  // Section breakdown
+  buildFileSwitcher();
 }
 
 function rsiColor(rsi) {

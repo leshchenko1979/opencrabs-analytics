@@ -32,6 +32,38 @@ def discover_profiles():
     return profiles
 
 
+def parse_md_sections(filepath):
+    """Parse markdown file into sections with heading and size."""
+    sections = []
+    try:
+        content = filepath.read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return sections
+    lines = content.split('\n')
+    current_heading = '(preamble)'
+    current_lines = []
+    for line in lines:
+        m = re.match(r'^(#{1,6})\s+(.+)', line)
+        if m:
+            if current_lines or current_heading != '(preamble)':
+                text = '\n'.join(current_lines).strip()
+                kb = round(len(text.encode('utf-8')) / 1024, 2)
+                if kb > 0 or current_heading == '(preamble)':
+                    sections.append({'heading': current_heading, 'kb': kb})
+            current_heading = m.group(2).strip()
+            current_lines = [line]
+        else:
+            current_lines.append(line)
+    # last section
+    text = '\n'.join(current_lines).strip()
+    kb = round(len(text.encode('utf-8')) / 1024, 2)
+    if kb > 0 or not sections:
+        sections.append({'heading': current_heading, 'kb': kb})
+    # sort largest first
+    sections.sort(key=lambda s: s['kb'], reverse=True)
+    return sections
+
+
 def collect_brain_sizes(profile_path):
     sizes = {}
     if profile_path.exists():
@@ -217,12 +249,19 @@ def build_profile_data(profile_name, profile_path):
     for fname, points in sorted(brain_history.items(), key=lambda x: x[0]):
         if fname in top10_files:
             brain_history_data.append({'file': fname, 'points': points})
+    # Section breakdown for top-10 files
+    brain_sections = {}
+    for fname in top10_files:
+        fpath = profile_path / fname
+        if fpath.exists():
+            brain_sections[fname] = parse_md_sections(fpath)
     total_kb = round(sum(brain_sizes.values()), 1)
     return {
         'name': profile_name,
         'brain_labels': brain_labels,
         'brain_kb': brain_kb,
         'brain_history': brain_history_data,
+        'brain_sections': brain_sections,
         'total_kb': total_kb,
         'file_count': len(brain_sizes),
     }
