@@ -322,8 +322,17 @@ def build_tool_data(tool_stats, rsi_counts, rsi_applied, rsi_highlights):
 def generate_html(profiles_data, tool_data, data_period):
     generated_at = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
 
-    profiles_json = json.dumps(profiles_data)
-    tool_json = json.dumps(tool_data)
+    def _safe_json(obj):
+        """json.dumps escaped for safe embedding inside an HTML <script> block,
+        so a '</script>' (or other markup) in a heading or tool name cannot break
+        out of the script context."""
+        return (json.dumps(obj)
+                .replace('<', '\\u003c')
+                .replace('>', '\\u003e')
+                .replace('&', '\\u0026'))
+
+    profiles_json = _safe_json(profiles_data)
+    tool_json = _safe_json(tool_data)
 
     template = TEMPLATE_PATH.read_text()
     html = template.replace('__GENERATED_AT__', generated_at)

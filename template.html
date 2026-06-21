@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RSI/Brain Analytics</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" integrity="sha384-JUh163oCRItcbPme8pYnROHQMC6fNKTBWtRG3I3I0erJkzNgL7uxKlNwcrcFKeqF" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" integrity="sha384-cVMg8E3QFwTvGCDuK+ET4PD341jF3W8nO1auiXfuZNQkzbUUiBGLsIQUE+b1mxws" crossorigin="anonymous"></script>
 <style>
   :root { --bg: #1a1a2e; --card: #16213e; --text: #e0e0e0; --accent: #0f3460; --hi: #e94560; --green: #2ecc71; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -279,20 +279,26 @@ function initToolCharts() {
   charts.top.data.datasets[1].data = TOOLS.top_fails;
   charts.top.update();
 
+  function row(cells) {
+    var tr = document.createElement('tr');
+    cells.forEach(function(text) {
+      var td = document.createElement('td');
+      td.textContent = text;
+      tr.appendChild(td);
+    });
+    return tr;
+  }
+
   var leastTbody = document.querySelector('#leastTable tbody');
   leastTbody.innerHTML = '';
   TOOLS.least_list.forEach(function(item) {
-    var tr = document.createElement('tr');
-    tr.innerHTML = '<td>' + item.name + '</td><td>' + item.count + '</td>';
-    leastTbody.appendChild(tr);
+    leastTbody.appendChild(row([item.name, item.count]));
   });
 
   var bestTbody = document.querySelector('#bestTable tbody');
   bestTbody.innerHTML = '';
   TOOLS.best_list.forEach(function(item) {
-    var tr = document.createElement('tr');
-    tr.innerHTML = '<td>' + item.name + '</td><td>' + item.rate + '%</td><td>' + item.count + '</td>';
-    bestTbody.appendChild(tr);
+    bestTbody.appendChild(row([item.name, item.rate + '%', item.count]));
   });
 
   var appliedTbody = document.querySelector('#appliedTable tbody');
@@ -301,9 +307,7 @@ function initToolCharts() {
     var applied = TOOLS.top_applied[i];
     var mentions = TOOLS.top_mentions[i];
     var rate = mentions > 0 ? (applied / mentions * 100).toFixed(0) + '%' : '—';
-    var tr = document.createElement('tr');
-    tr.innerHTML = '<td>' + name + '</td><td>' + applied + '</td><td>' + mentions + '</td><td>' + rate + '</td>';
-    appliedTbody.appendChild(tr);
+    appliedTbody.appendChild(row([name, applied, mentions, rate]));
   });
 
   charts.rsi.data.labels = TOOLS.rsi_dates;
