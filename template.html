@@ -49,7 +49,11 @@
 <div class="switcher" id="profileSwitcher"></div>
 
 <div class="cards">
-  <div class="card"><div class="value" id="cardKB">__TOTAL_KB__ KB</div><div class="label">Brain Size (<span id="cardFiles">__FILE_COUNT__</span> files)</div></div>
+  <div class="card" style="text-align:center;">
+    <div class="value" id="cardKB">__TOTAL_KB__ KB</div>
+    <div class="label">Brain Size (<span id="cardFiles">__FILE_COUNT__</span> files)</div>
+    <div id="coreSub" style="margin-top:6px;font-size:0.78em;opacity:0.75;line-height:1.4;"></div>
+  </div>
 </div>
 
 <div class="charts">
@@ -125,11 +129,18 @@ var commonOpts = {
 };
 
 function initCharts() {
-  // Brain sizes bar
+  // Brain sizes bar — stacked: core (red) + rest (blue)
   charts.brain = new Chart(document.getElementById('brainChart'), {
     type: 'bar',
-    data: { labels: [], datasets: [{ label: 'Size (KB)', data: [], backgroundColor: '#e94560' }] },
-    options: Object.assign({}, commonOpts, { indexAxis: 'y', plugins: { legend: { display: false } } })
+    data: { labels: [], datasets: [
+      { label: 'Core (A+U+S)', data: [], backgroundColor: '#e94560' },
+      { label: 'Other', data: [], backgroundColor: '#0f3460' }
+    ]},
+    options: Object.assign({}, commonOpts, {
+      indexAxis: 'y',
+      scales: { x: { stacked: true, ticks: { color: '#aaa' } }, y: { stacked: true, ticks: { color: '#aaa' } } },
+      plugins: { legend: { display: true, labels: { color: '#e0e0e0' } } }
+    })
   });
 
   // Bubble scatter: x=usage, y=fail rate, r+color=RSI
@@ -229,13 +240,42 @@ function updateProfile(idx) {
   document.getElementById('cardKB').textContent = p.total_kb + ' KB';
   document.getElementById('cardFiles').textContent = p.file_count;
 
+  // Core subtitle in brain card
+  var coreSub = document.getElementById('coreSub');
+  if (p.core_kb > 0 && p.core_detail) {
+    var pct = (p.core_kb / p.total_kb * 100).toFixed(0);
+    var parts = [];
+    ['AGENTS.md','USER.md','SOUL.md'].forEach(function(f) {
+      if (p.core_detail[f] !== undefined) parts.push(f.replace('.md','') + ' ' + p.core_detail[f]);
+    });
+    coreSub.innerHTML = '<span style="color:var(--hi);">■</span> Core: <b>' + p.core_kb + ' KB</b> (' + pct + '%) — ' + parts.join(' · ') + ' KB';
+  } else {
+    coreSub.textContent = '';
+  }
+
   // Update switcher buttons
   var btns = document.querySelectorAll('#profileSwitcher button');
   btns.forEach(function(b, i) { b.classList.toggle('active', i === idx); });
 
-  // Brain sizes
+  // Brain sizes — stacked: core vs rest
+  var coreSet = [];
+  var otherSet = [];
+  p.brain_labels.forEach(function(fname) {
+    var fileKb = p.brain_kb[p.brain_labels.indexOf(fname)];
+    if (fname === 'Other') {
+      coreSet.push(0);
+      otherSet.push(fileKb);
+    } else if (p.core_detail && p.core_detail[fname] !== undefined) {
+      coreSet.push(fileKb);
+      otherSet.push(0);
+    } else {
+      coreSet.push(0);
+      otherSet.push(fileKb);
+    }
+  });
   charts.brain.data.labels = p.brain_labels;
-  charts.brain.data.datasets[0].data = p.brain_kb;
+  charts.brain.data.datasets[0].data = coreSet;
+  charts.brain.data.datasets[1].data = otherSet;
   charts.brain.update();
 
   // Brain history

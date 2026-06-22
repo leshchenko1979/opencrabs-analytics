@@ -238,7 +238,11 @@ def build_profile_data(profile_name, profile_path):
         if fname not in brain_history:
             brain_history[fname] = []
         brain_history[fname].append({'date': today_display, 'kb': kb, 'iso': today_iso})
-    top_brain = list(brain_sizes.items())[:10]
+    # Core files first, then 7 biggest others
+    core_files = ['AGENTS.md', 'USER.md', 'SOUL.md']
+    core_items = [(f, brain_sizes[f]) for f in core_files if f in brain_sizes]
+    other_items = [(k, v) for k, v in brain_sizes.items() if k not in core_files]
+    top_brain = core_items + other_items[:max(0, 10 - len(core_items))]
     other_kb = sum(v for k, v in list(brain_sizes.items())[10:])
     if other_kb > 0:
         top_brain.append(('Other', round(other_kb, 1)))
@@ -256,6 +260,21 @@ def build_profile_data(profile_name, profile_path):
         if fpath.exists():
             brain_sections[fname] = parse_md_sections(fpath)
     total_kb = round(sum(brain_sizes.values()), 1)
+    # Core files size (AGENTS.md + USER.md + SOUL.md)
+    core_files = ['AGENTS.md', 'USER.md', 'SOUL.md']
+    core_kb = 0.0
+    core_detail = {}
+    for cf in core_files:
+        cpath = profile_path / cf
+        if cpath.exists():
+            try:
+                sz = round(cpath.stat().st_size / 1024, 1)
+                core_detail[cf] = sz
+                core_kb += sz
+            except OSError:
+                pass
+    core_kb = round(core_kb, 1)
+
     return {
         'name': profile_name,
         'brain_labels': brain_labels,
@@ -263,6 +282,8 @@ def build_profile_data(profile_name, profile_path):
         'brain_history': brain_history_data,
         'brain_sections': brain_sections,
         'total_kb': total_kb,
+        'core_kb': core_kb,
+        'core_detail': core_detail,
         'file_count': len(brain_sizes),
     }
 
